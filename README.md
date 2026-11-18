@@ -4,7 +4,6 @@
 
 - **No double-click cycling.** A double click on the bar no longer steps its background through clear, glassy and opaque, and neither does the `toggleBarTransparency` IPC call. The bar keeps the `background` from `~/.config/omarchy/shell.json`; change it there, with `omarchy bar background <opaque|glassy|none>`, or in a settings app that writes it. The cycling call is kept, commented out, in `cycleBackground()` in `Bar.qml`.
 - **Opaque under the console.** While the console's special workspace (`special:qconsole`) is open on any monitor, the bar draws its opaque background, so it reads as one block with the console below it. It takes the shell.json background back when the console closes. A transparent bar (`none`) stays transparent.
-- **Console shadow.** The console casts a soft shadow below it onto the dimmed desktop, so it reads as a panel hanging from the bar. Nothing is drawn along its sides or across its top. The shadow falls from the box around the console's tiled windows, slides in and out with the console, and sits on a click-through layer surface, `io.github.ltecosta.bar-console-shadow`, clipped to the area below the console so it never covers the console's windows.
 
 Everything else is Omarchy's bar, and it follows Omarchy updates.
 
@@ -19,17 +18,15 @@ omarchy bar use io.github.ltecosta.bar
 
 ## Settings
 
-Properties at the top of `Bar.qml`:
+One property at the top of `Bar.qml`:
 
 | Property | Default | Meaning |
 |---|---|---|
-| `consoleWorkspace` | `special:qconsole` | The special workspace that makes the bar opaque and casts the shadow |
-| `shadowColor` | black at 80% | The shadow's color |
-| `shadowBlur` | `28` | How far, in logical pixels, the shadow fades out |
+| `consoleWorkspace` | `special:qconsole` | The special workspace that makes the bar opaque |
 
 ## How it works
 
-`Bar.qml` imports Omarchy's bar from `file:///usr/share/omarchy/shell/plugins/bar`, the path the `omarchy` package installs it to, and derives from it: it overrides `cycleBackground()` and sets the bar's `glassy` flag while the console is open. Hyprland's raw events (`activespecial`, window open, close, move, float and fullscreen changes) trigger `hyprctl -j monitors` and `hyprctl -j clients`; `Model.js` turns their output into the monitors showing the console and the console's box on each.
+`Bar.qml` imports Omarchy's bar from `file:///usr/share/omarchy/shell/plugins/bar`, the path the `omarchy` package installs it to, and derives from it: it overrides `cycleBackground()` and sets the bar's `glassy` flag while the console is open. Hyprland's `activespecial`, monitor and config-reload events trigger `hyprctl -j monitors`; `Model.js` turns its output into the monitors showing the console.
 
 Quickshell's static import scanner logs `Ignoring unresolvable import` for the absolute import when the plugin loads; the QML engine resolves it at runtime.
 
