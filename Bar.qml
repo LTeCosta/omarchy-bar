@@ -4,13 +4,14 @@
 //   the `background` set in shell.json.
 // - While the console is open the bar turns opaque, and it takes the shell.json
 //   background back when the console closes.
-// - The console's focused window gets a focus outline down its sides and along
-//   its bottom, not across its top, where it meets the bar.
+// - The console casts a soft shadow below it, onto the dimmed desktop; nothing
+//   is drawn along its sides or across its top, where it meets the bar.
 //
 // Everything else is Omarchy's own bar: this extends the packaged Bar.qml
 // rather than copying it, so the bar follows Omarchy updates.
 
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -25,10 +26,10 @@ Omarchy.Bar {
   // The special workspace the console opens on, as Omarchy's
   // default/hypr/qconsole.lua names it.
   readonly property string consoleWorkspace: "special:qconsole"
-  // The focus outline's color. Its width follows Hyprland's general:border_size.
-  readonly property color outlineColor: "#d3d3d3"
+  // The shadow under the console: its color and how far it fades out.
+  readonly property color shadowColor: Qt.rgba(0, 0, 0, 0.8)
+  readonly property real shadowBlur: 28
 
-  property int outlineSize: 2
   property var monitorsState: []
   property var clientsState: []
   readonly property var consoleMonitors: Model.consoleMonitors(monitorsState, consoleWorkspace)
@@ -88,30 +89,15 @@ Omarchy.Bar {
     }
   }
 
-  Process {
-    id: borderProbe
-    command: ["hyprctl", "-j", "getoption", "general:border_size"]
-    stdout: StdioCollector {
-      onStreamFinished: extended.outlineSize = Model.parseBorderSize(text, 2)
-    }
-  }
+  Component.onCompleted: refreshConsole()
 
-  Component.onCompleted: {
-    borderProbe.running = true
-    refreshConsole()
-  }
-
-  // Events that open or close the console, change its windows or move focus.
-  // Focus changes elsewhere matter only while the console is open.
+  // Events that open or close the console or change its windows.
   Connections {
     target: Hyprland
     function onRawEvent(event) {
       var name = event ? String(event.name) : ""
       switch (name) {
       case "configreloaded":
-        borderProbe.running = true
-        refreshTimer.restart()
-        break
       case "activespecial":
       case "activespecialv2":
       case "openwindow":
@@ -123,9 +109,6 @@ Omarchy.Bar {
       case "monitorremovedv2":
         refreshTimer.restart()
         break
-      case "activewindowv2":
-        if (extended.consoleOpen) refreshTimer.restart()
-        break
       }
     }
   }
@@ -135,18 +118,18 @@ Omarchy.Bar {
 
     delegate: Component {
       PanelWindow {
-        id: outlineWindow
+        id: shadowWindow
 
         required property var modelData
 
         screen: modelData
-        readonly property var pieces: Model.outline(extended.monitorsState, extended.clientsState,
-          extended.consoleWorkspace, modelData.name, extended.outlineSize)
-        readonly property bool shown: pieces !== null
-        // The strips the outline last showed, kept while it slides away.
+        readonly property var panel: Model.consolePanel(extended.monitorsState, extended.clientsState,
+          extended.consoleWorkspace, modelData.name)
+        readonly property bool shown: panel !== null
+        // The panel the shadow last fell from, kept while it slides away.
         property var drawn: null
 
-        onPiecesChanged: if (pieces) drawn = pieces
+        onPanelChanged: if (panel) drawn = panel
 
         // Follow the console's own slide: Hyprland drops the special workspace
         // in from the top (specialWorkspaceIn, 300 ms, easeOutQuint) and
@@ -165,7 +148,7 @@ Omarchy.Bar {
         anchors { top: true; left: true; right: true; bottom: true }
         exclusionMode: ExclusionMode.Ignore
         mask: Region {}
-        WlrLayershell.namespace: "io.github.ltecosta.bar-outline"
+        WlrLayershell.namespace: "io.github.ltecosta.bar-console-shadow"
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
@@ -181,16 +164,24 @@ Omarchy.Bar {
             easing.type: Easing.Bezier
           }
 
-          Repeater {
-            model: outlineWindow.drawn ? [outlineWindow.drawn.left, outlineWindow.drawn.right, outlineWindow.drawn.bottom] : []
+          // Only the part of the shadow below the panel shows: this layer is
+          // above the console's windows, so the clip keeps it off them.
+          Item {
+            visible: shadowWindow.drawn !== null
+            x: 0
+            y: shadowWindow.drawn ? shadowWindow.drawn.y + shadowWindow.drawn.height : 0
+            width: parent.width
+            height: extended.shadowBlur * 2
+            clip: true
 
-            delegate: Rectangle {
-              required property var modelData
-              x: modelData.x
-              y: modelData.y
-              width: modelData.width
-              height: modelData.height
-              color: extended.outlineColor
+            RectangularShadow {
+              x: shadowWindow.drawn ? shadowWindow.drawn.x : 0
+              y: shadowWindow.drawn ? -shadowWindow.drawn.height : 0
+              width: shadowWindow.drawn ? shadowWindow.drawn.width : 0
+              height: shadowWindow.drawn ? shadowWindow.drawn.height : 0
+              offset: Qt.vector2d(0, extended.shadowBlur / 4)
+              blur: extended.shadowBlur
+              color: extended.shadowColor
             }
           }
         }

@@ -1,8 +1,8 @@
 .pragma library
 
 // Decisions for the bar: the background shell.json asks for, the monitors that
-// show the console, and where the console's focus outline goes. Pure functions
-// over hyprctl JSON, so tests/ can run them in Node.
+// show the console, and the console's panel, which casts the shadow. Pure
+// functions over hyprctl JSON, so tests/ can run them in Node.
 
 // A JSON array from command output, else an empty list.
 function parseList(text) {
@@ -12,16 +12,6 @@ function parseList(text) {
   } catch (e) {
     return []
   }
-}
-
-// Hyprland's general:border_size from `hyprctl -j getoption`, else fallback.
-function parseBorderSize(text, fallback) {
-  try {
-    var value = JSON.parse(String(text))
-    var size = value && value.int
-    if (typeof size === "number" && size === Math.floor(size) && size >= 1 && size <= 32) return size
-  } catch (e) {}
-  return fallback
 }
 
 // The background shell.json asks for, read the way Omarchy's bar reads it:
@@ -62,13 +52,10 @@ function monitorFrame(monitor) {
   return { id: monitor.id, x: monitor.x, y: monitor.y, width: Math.round(width), height: Math.round(height) }
 }
 
-// The focus outline on `monitorName`: `size`-pixel strips down the left and
-// right of the focused console window and along its bottom, none along its top,
-// in monitor-local logical pixels. Strips sit just outside the window, as
-// Hyprland draws a border, and move inside it where the screen edge would cut
-// them off. Null while the console is not open there, its focused window is
-// elsewhere or fullscreen.
-function outline(monitors, clients, workspace, monitorName, size) {
+// The console's panel on `monitorName`: the box around its tiled windows (its
+// floating ones when it has none), in monitor-local logical pixels. Null while
+// the console is not open there, is empty, or holds a fullscreen window.
+function consolePanel(monitors, clients, workspace, monitorName) {
   var monitor = null
   for (var i = 0; i < monitors.length; i++) {
     if (monitors[i] && monitors[i].name === monitorName) monitor = monitors[i]
@@ -79,32 +66,32 @@ function outline(monitors, clients, workspace, monitorName, size) {
   var frame = monitorFrame(monitor)
   if (!frame) return null
 
-  var focused = null
+  var tiled = []
+  var floating = []
   for (var j = 0; j < clients.length; j++) {
     var client = clients[j]
-    if (client && client.focusHistoryID === 0) focused = client
+    if (!client || !client.workspace || client.workspace.name !== workspace || client.monitor !== frame.id) continue
+    if (finite(client.fullscreen) && client.fullscreen > 0) return null
+    var at = client.at
+    var extent = client.size
+    if (!Array.isArray(at) || !Array.isArray(extent) || !finite(at[0]) || !finite(at[1]) || !finite(extent[0]) || !finite(extent[1])) continue
+    if (extent[0] <= 0 || extent[1] <= 0) continue
+    var box = { left: at[0] - frame.x, top: at[1] - frame.y, right: at[0] - frame.x + extent[0], bottom: at[1] - frame.y + extent[1] }
+    if (client.floating === true) floating.push(box)
+    else tiled.push(box)
   }
-  if (!focused || !focused.workspace || focused.workspace.name !== workspace) return null
-  if (focused.monitor !== frame.id || (finite(focused.fullscreen) && focused.fullscreen > 0)) return null
 
-  var at = focused.at
-  var extent = focused.size
-  if (!Array.isArray(at) || !Array.isArray(extent) || !finite(at[0]) || !finite(at[1]) || !finite(extent[0]) || !finite(extent[1])) return null
-  if (extent[0] <= 0 || extent[1] <= 0) return null
+  var boxes = tiled.length > 0 ? tiled : floating
+  if (boxes.length === 0) return null
 
-  var b = finite(size) && size >= 1 ? Math.round(size) : 1
-  var x = at[0] - frame.x
-  var y = at[1] - frame.y
-  var w = extent[0]
-  var h = extent[1]
-
-  var left = x - b < 0 ? x : x - b
-  var right = x + w + b > frame.width ? x + w - b : x + w
-  var bottom = y + h + b > frame.height ? y + h - b : y + h
-
-  return {
-    left: { x: left, y: y, width: b, height: bottom + b - y },
-    right: { x: right, y: y, width: b, height: bottom + b - y },
-    bottom: { x: left, y: bottom, width: right + b - left, height: b }
+  var panel = boxes[0]
+  for (var k = 1; k < boxes.length; k++) {
+    panel = {
+      left: Math.min(panel.left, boxes[k].left),
+      top: Math.min(panel.top, boxes[k].top),
+      right: Math.max(panel.right, boxes[k].right),
+      bottom: Math.max(panel.bottom, boxes[k].bottom)
+    }
   }
+  return { x: panel.left, y: panel.top, width: panel.right - panel.left, height: panel.bottom - panel.top }
 }
