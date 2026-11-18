@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.ltecosta.bar",
+  "name": "Bar",
+  "version": "1.0.0",
+  "author": "Lucas Costa",
+  "license": "MIT",
+  "description": "Omarchy's bar, opaque under the Quake console with a focus outline around the console's window, and without the double click that cycles the background.",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.bar"
+  }
+}
