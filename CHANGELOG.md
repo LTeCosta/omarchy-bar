@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- Only the bar on the monitor the console is open on turns opaque, through a strip of the bar's opaque background behind it; the bars on other monitors keep their look.
+
 ## 1.0.0
 
 - Extends Omarchy's packaged `omarchy.bar` (`$OMARCHY_PATH/shell/plugins/bar/Bar.qml`) instead of copying it.

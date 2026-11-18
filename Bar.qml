@@ -2,8 +2,8 @@
 //
 // - A double click on the bar no longer cycles its background; the bar keeps
 //   the `background` set in shell.json.
-// - While the Quake console (Super + Grave) is open the bar turns opaque, and
-//   it takes the shell.json background back when the console closes.
+// - While the Quake console (Super + Grave) is open, the bar on the monitor it
+//   dropped down on turns opaque; the bars on other monitors keep their look.
 //
 // Everything else is Omarchy's own bar: this extends the packaged Bar.qml
 // rather than copying it, so the bar follows Omarchy updates.
@@ -12,6 +12,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Wayland
 import qs.Commons
 import "file:///usr/share/omarchy/shell/plugins/bar" as Omarchy
 import "Model.js" as Model
@@ -24,7 +25,6 @@ Omarchy.Bar {
   readonly property string consoleWorkspace: "special:qconsole"
   property var monitorsState: []
   readonly property var consoleMonitors: Model.consoleMonitors(monitorsState, consoleWorkspace)
-  readonly property bool consoleOpen: consoleMonitors.length > 0
 
   // Omarchy's bar runs this on a double click and for the
   // toggleBarTransparency IPC call. Left empty, the bar keeps the shell.json
@@ -33,21 +33,6 @@ Omarchy.Bar {
   function cycleBackground() {
     // Util.execDetached("omarchy-bar background cycle")
   }
-
-  // Opaque while the console is open, the shell.json look otherwise. A
-  // transparent bar ("none") keeps whatever glassy holds, as Omarchy's does.
-  function applyConsoleLook() {
-    if (consoleOpen) {
-      glassy = false
-      return
-    }
-    var look = Model.configuredLook(barConfig)
-    if (look !== "none") glassy = look === "glassy"
-  }
-
-  onConsoleOpenChanged: applyConsoleLook()
-  // A shell.json write re-applies the configured look; the console overrides it.
-  onGlassyChanged: if (consoleOpen && glassy) glassy = false
 
   function refreshConsole() {
     if (monitorsProbe.running) {
@@ -86,6 +71,38 @@ Omarchy.Bar {
       case "monitorremovedv2":
         refreshTimer.restart()
         break
+      }
+    }
+  }
+
+  // The bar's background is one look for every monitor, so the bar itself
+  // stays as shell.json sets it. On the console's monitor a strip of the
+  // bar's opaque background sits right behind the bar, on the bottom layer,
+  // and a glassy bar over it reads as opaque. Nothing tiles there: the bar
+  // reserves that edge. A transparent bar ("none") gets no backing.
+  Variants {
+    model: Quickshell.screens
+
+    delegate: Component {
+      PanelWindow {
+        required property var modelData
+
+        screen: modelData
+        visible: extended.consoleMonitors.indexOf(modelData.name) !== -1 && !extended.transparent && !extended.barHidden
+        anchors {
+          top: extended.position !== "bottom"
+          bottom: extended.position !== "top"
+          left: extended.position !== "right"
+          right: extended.position !== "left"
+        }
+        implicitWidth: extended.vertical ? extended.thicknessFor(modelData) : 0
+        implicitHeight: extended.vertical ? 0 : extended.thicknessFor(modelData)
+        color: extended.background
+        exclusionMode: ExclusionMode.Ignore
+        mask: Region {}
+        WlrLayershell.namespace: "io.github.ltecosta.bar-backing"
+        WlrLayershell.layer: WlrLayer.Bottom
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       }
     }
   }

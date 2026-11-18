@@ -23,15 +23,6 @@ test("parseList keeps arrays and drops anything else", () => {
   assert.deepStrictEqual(plain(Model.parseList("not json")), [])
 })
 
-test("configuredLook reads shell.json like Omarchy's bar", () => {
-  assert.strictEqual(Model.configuredLook({ background: "glassy" }), "glassy")
-  assert.strictEqual(Model.configuredLook({ background: "none" }), "none")
-  assert.strictEqual(Model.configuredLook({ transparent: true }), "none")
-  assert.strictEqual(Model.configuredLook({}), "opaque")
-  assert.strictEqual(Model.configuredLook(null), "opaque")
-  assert.strictEqual(Model.configuredLook({ background: "<b>x</b>" }), "opaque")
-})
-
 test("consoleMonitors lists monitors showing the console", () => {
   const monitors = [monitor(), monitor({ id: 0, name: "eDP-1", specialWorkspace: { id: 0, name: "" } })]
   assert.deepStrictEqual(plain(Model.consoleMonitors(monitors, CONSOLE)), ["DP-2"])

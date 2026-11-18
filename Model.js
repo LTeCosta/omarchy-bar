@@ -1,8 +1,7 @@
 .pragma library
 
-// Decisions for the bar: the background shell.json asks for and the monitors
-// that show the console. Pure functions over hyprctl JSON, so tests/ can run
-// them in Node.
+// Decisions for the bar: the monitors that show the console. Pure functions
+// over hyprctl JSON, so tests/ can run them in Node.
 
 // A JSON array from command output, else an empty list.
 function parseList(text) {
@@ -12,14 +11,6 @@ function parseList(text) {
   } catch (e) {
     return []
   }
-}
-
-// The background shell.json asks for, read the way Omarchy's bar reads it:
-// "opaque", "glassy" or "none", with the older `transparent` flag meaning none.
-function configuredLook(config) {
-  var bar = config && typeof config === "object" ? config : {}
-  var look = bar.background || (bar.transparent === true ? "none" : "opaque")
-  return look === "glassy" || look === "none" ? look : "opaque"
 }
 
 // Names of the monitors whose open special workspace is `workspace`.
