@@ -10,11 +10,11 @@ Everything else is Omarchy's bar, and it follows Omarchy updates.
 ## Install
 
 ```bash
-scripts/install bar
+omarchy plugin add https://github.com/LTeCosta/omarchy-bar.git
 omarchy bar use io.github.ltecosta.bar
 ```
 
-`omarchy bar use omarchy.bar` goes back to Omarchy's bar. The manifest declares itself a clone of `omarchy.bar`, which keeps the bar's own IPC target, `omarchy.bar`, working.
+`omarchy plugin add` clones the repository into `~/.config/omarchy/plugins/io.github.ltecosta.bar/`; `omarchy plugin update io.github.ltecosta.bar` updates it. `omarchy bar use omarchy.bar` goes back to Omarchy's bar. The manifest declares itself a clone of `omarchy.bar`, which keeps the bar's own IPC target, `omarchy.bar`, working.
 
 ## Settings
 
